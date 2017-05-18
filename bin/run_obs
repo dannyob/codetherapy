@@ -1,0 +1,17 @@
+#!/bin/sh
+
+# Create webstream sink, so that we can direct computer-generated audio into
+# webstream, with a separate monitor output through the internal headphones.
+
+if pactl list | grep "webstream" >/dev/null
+then
+    echo "Pulseaudio already configured"
+else
+    echo "Configuring pulseaudio"
+    pactl load-module module-null-sink sink_name="webstream_sink" sink_properties=device.description="web_stream"
+    pactl load-module module-loopback source=webstream_sink.monitor sink=alsa_output.pci-0000_00_1f.3.analog-stereo rate=44100
+fi
+
+# My laptop's DRI3 implementation doesn't work well with OBS
+LIBGL_DRI3_DISABLE=1 /usr/bin/obs
+
