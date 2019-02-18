@@ -1,0 +1,23 @@
+#!/bin/sh
+###
+# Downloads all the music at the Free Music Archive that matching a search request.
+###
+#
+# fma-download <URL-of-search>
+# Needs pup: https://github.com/ericchiang/pup
+###
+
+# Instructions: go to https://freemusicarchive.org/search/
+# and tweak the searches for the music you want to mass download.
+# 
+# (I suggest setting the option at the bottom to "200 entries" per page,
+# so you can download as much as you can in one go.
+#
+# Install 'pup' (see URL above), and put it somewhere on your path.
+
+curl $1 \
+    | pup '.icn-arrow' \
+    | grep Download \
+    | sed 's/.*"h/h/g' \
+    | sed 's/".*$//' \
+    | xargs 'wget' '--content-disposition' '--no-clobber' 
