@@ -1,0 +1,38 @@
+#!guile \
+-e main -s
+!#
+;; A program to generate a statusbar, using the i3 bar input protocol used by both i3 and sway.
+;; See: <https://i3wm.org/docs/i3bar-protocol.html>
+;;
+;; The protocol is JSON-based, and is essentially a JSON protocol version
+;; object, followed by an array of status bar updates. This array never quite
+;; gets to its closing "]".
+;;
+;; We output this protocol over STDOUT.
+
+(use-modules (json))
+(use-modules (srfi srfi-1))
+(use-modules (ice-9 vlist))
+(use-modules (ice-9 hash-table))
+
+(define initial-json '(("version" . 1)))
+
+(define todays-date '(("name" . "foo") ("full_text" . "testing world") ("color" . "#00ff00")))
+
+(define (main args)
+  (scm->json initial-json)
+  (format #t "\n")
+  (format #t "[")
+  (format #t "[]")
+  (loopy todays-date))
+
+(define (new-status status)
+  (cons '("full_text" . "foo") (alist-delete "full_text" todays-date))
+  )
+
+(define (loopy status)
+  (format #t "\n,")
+  (scm->json (vector status))
+  (force-output)
+  (sleep 1)
+  (loopy (new-status status)))
