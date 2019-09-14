@@ -1,0 +1,56 @@
+#!env guile 
+ vim: set ft=scheme: !#
+
+ (use-modules 
+   (ice-9 popen)
+   (ice-9 textual-ports)
+   (sxml simple))
+   
+
+;; Call qdbus command
+;; Pull out:
+;; Track Name
+;; Author
+;; Album
+;; CC license
+;; Link
+
+(define get-track-metadata-command "qdbus org.mpris.MediaPlayer2.clementine /org/mpris/MediaPlayer2 org.freedesktop.DBus.Properties.Get org.mpris.MediaPlayer2.Player Metadata")
+
+(define (shell->list command) 
+  (let* ((port (open-input-pipe command))
+         (str  (string-split (get-string-all port) #\newline))) 
+    (close-pipe port) str))
+
+(define (tidy-key k) 
+  (let ((all-alpha (string-map (lambda (x) (if (char-alphabetic? x) x #\-))k)))
+    (string-trim-both all-alpha #\-))) 
+
+(define (assoc-qdbus line) 
+ (let* ((key (car (string-split line #\space))) 
+        (value  
+         (if (string<> key line)  
+          (substring line (1+ ( string-length key))) 
+          "")))
+    (if ( string= line "") '() 
+     (cons 
+      (string-downcase (tidy-key key)) 
+      (string-trim-both value char-set:whitespace)))))
+
+(define (track-metadata) (map assoc-qdbus (shell->list get-track-metadata-command)))
+
+(define (track-details-sxml)
+    (let ((tmd (track-metadata)))
+      `(dl 
+         (dt "Artist" (dd ,(assoc-ref tmd "xesam-artist")))
+         (dt "Album" (dd ,(assoc-ref tmd "xesam-album")))
+         (dt "Title" (dd ,(assoc-ref tmd "xesam-title")))
+         (dt "Info" (dd ,(assoc-ref tmd "xesam-comment")))
+         (dt "License" (dd ,(assoc-ref tmd "copyright"))))))
+
+
+;; Insert into Explainer.html
+
+;; TODO: Add time settings from stream.
+
+
