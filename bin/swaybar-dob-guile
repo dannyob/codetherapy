@@ -14,6 +14,7 @@
 (use-modules (srfi srfi-1))
 (use-modules (ice-9 vlist))
 (use-modules (ice-9 hash-table))
+(use-modules (srfi srfi-19))
 
 (define initial-json '(("version" . 1)))
 
@@ -27,7 +28,7 @@
   (loopy todays-date))
 
 (define (new-status status)
-  (cons '("full_text" . "foo") (alist-delete "full_text" todays-date))
+  (cons `("full_text" . ,(date->string (current-date) "~4")) (alist-delete "full_text" todays-date))
   )
 
 (define (loopy status)
