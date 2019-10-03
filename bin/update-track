@@ -1,56 +1,72 @@
-#!env guile 
- vim: set ft=scheme: !#
+#!guile \
+-e main -s
+!#
 
- (use-modules 
-   (ice-9 popen)
-   (ice-9 textual-ports)
-   (sxml simple))
-   
+(use-modules
+ (ice-9 popen)
+ (ice-9 textual-ports)
+ (ice-9 receive)
+ (ice-9 regex)
+ (sxml simple))
 
-;; Call qdbus command
-;; Pull out:
-;; Track Name
-;; Author
-;; Album
-;; CC license
-;; Link
+(define (shell-quote-argument s)
+  (let ((char-set:do-not-escape-in-shell (string->char-set "_./\n]" char-set:letter+digit)))
+    (string-fold (lambda (a b)
+                   (string-append b (if
+                                     (char-set-contains? char-set:do-not-escape-in-shell a) "" "\\")
+                                  (if (char=? #\newline a) "'\n'" (string a))))
+                 "" s)))
 
 (define get-track-metadata-command "qdbus org.mpris.MediaPlayer2.clementine /org/mpris/MediaPlayer2 org.freedesktop.DBus.Properties.Get org.mpris.MediaPlayer2.Player Metadata")
 
-(define (shell->list command) 
+(define (shell->list command)
   (let* ((port (open-input-pipe command))
-         (str  (string-split (get-string-all port) #\newline))) 
-    (close-pipe port) str))
+         (str  (string-split (get-string-all port) #\newline)))
+    (values str (close-pipe port))))
 
-(define (tidy-key k) 
+(define (tidy-key k)
   (let ((all-alpha (string-map (lambda (x) (if (char-alphabetic? x) x #\-))k)))
-    (string-trim-both all-alpha #\-))) 
+    (string-trim-both all-alpha #\-)))
 
-(define (assoc-qdbus line) 
- (let* ((key (car (string-split line #\space))) 
-        (value  
-         (if (string<> key line)  
-          (substring line (1+ ( string-length key))) 
-          "")))
-    (if ( string= line "") '() 
-     (cons 
-      (string-downcase (tidy-key key)) 
-      (string-trim-both value char-set:whitespace)))))
+(define (assoc-qdbus line)
+  (let* ((key (car (string-split line #\space)))
+         (value
+          (if (string<> key line)
+              (substring line (1+ ( string-length key)))
+              "")))
+    (if (string= line "") '()
+        (cons
+         (string-downcase (tidy-key key))
+         (string-trim-both value char-set:whitespace)))))
 
-(define (track-metadata) (map assoc-qdbus (shell->list get-track-metadata-command)))
+(define (track-metadata)
+  (receive (data status) (shell->list get-track-metadata-command)
+    (if (= (status:exit-val status) 0)
+        (map assoc-qdbus data)
+        `(("error" . ,status)))))
 
 (define (track-details-sxml)
-    (let ((tmd (track-metadata)))
-      `(dl 
-         (dt "Artist" (dd ,(assoc-ref tmd "xesam-artist")))
-         (dt "Album" (dd ,(assoc-ref tmd "xesam-album")))
-         (dt "Title" (dd ,(assoc-ref tmd "xesam-title")))
-         (dt "Info" (dd ,(assoc-ref tmd "xesam-comment")))
-         (dt "License" (dd ,(assoc-ref tmd "copyright"))))))
+  (let ((tmd (track-metadata)))
+    (if (assoc-ref tmd "error")
+        `(dl (dt "No track playing."))
+        `(dl
+          (dt "Artist") (dd ,(assoc-ref tmd "xesam-artist"))
+          (dt "Album") (dd ,(assoc-ref tmd "xesam-album"))
+          (dt "Title") (dd ,(assoc-ref tmd "xesam-title"))
+          (dt "License") (dd ,(assoc-ref tmd "copyright"))
+          (dt "Info") (dd ,(assoc-ref tmd "xesam-comment"))))))
+
+(define (add-to-explainer1)
+  (string-append "sed -i "
+                 (shell-quote-argument
+                  (format #f "/BEGIN TRACK DATA/,/END TRACK DATA/!b;//!d;/BEGIN/a ~a"
+                          (with-output-to-string (lambda () (sxml->xml (track-details-sxml))))))
+                 " /home/danny/Private/codetherapy/onscreen-explainer.html"))
 
 
-;; Insert into Explainer.html
+(define (add-to-explainer) (shell->list (add-to-explainer1)))
 
-;; TODO: Add time settings from stream.
-
-
+(define (main args)
+  (if (and (< 1 (length args)) (string=? (cadr args) "--sexp"))
+      (write (track-metadata))
+      (add-to-explainer)))
