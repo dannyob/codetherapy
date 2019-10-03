@@ -1,39 +1,73 @@
 #!guile \
 -e main -s
 !#
-;; A program to generate a statusbar, using the i3 bar input protocol used by both i3 and sway.
-;; See: <https://i3wm.org/docs/i3bar-protocol.html>
+;;; swaybar-dob-guile --- Swaybar in Guile
+;;; A program to generate a statusbar, using the i3 bar input protocol used by both i3 and sway.
+;;; See: <https://i3wm.org/docs/i3bar-protocol.html>
 ;;
 ;; The protocol is JSON-based, and is essentially a JSON protocol version
 ;; object, followed by an array of status bar updates. This array never quite
 ;; gets to its closing "]".
 ;;
 ;; We output this protocol over STDOUT.
+;; TODO:
+;; In our status bar, we would like:
+;; - The time and date.
+;; - The currently playing track.
+;; - The last follower.
+
+;;; Code:
 
 (use-modules (json))
 (use-modules (srfi srfi-1))
 (use-modules (ice-9 vlist))
 (use-modules (ice-9 hash-table))
 (use-modules (srfi srfi-19))
+(use-modules (srfi srfi-9))
+(use-modules (srfi srfi-43))
+
+(define-record-type <bar-block>
+  (make-bar-block name color run-func)
+  bar-block?
+  (name bar-block-name)
+  (color bar-block-color)
+  (run-func bar-block-run-func))
+
+(define (bar-block->alist bb)
+  `(("name" . ,(bar-block-name bb))
+    ("color" . ,(bar-block-color bb))
+    ("full_text" . ,(apply (bar-block-run-func bb) '()) )))
+
+(define date-block (make-bar-block
+                    "todays-date"
+                    "#00ff00"
+                    (lambda ()
+                      (date->string (current-date) "~4"))))
+
+(define track-block
+  (make-bar-block
+   "current-track"
+   "#ff0000"
+   (lambda ()
+     "The current track")))
 
 (define initial-json '(("version" . 1)))
 
-(define todays-date '(("name" . "foo") ("full_text" . "testing world") ("color" . "#00ff00")))
-
 (define (main args)
   (scm->json initial-json)
-  (format #t "\n")
-  (format #t "[")
-  (format #t "[]")
-  (loopy todays-date))
+  (display "\n")
+  (display "[\n")
+  (display "[]\n")
+  (loopy (list track-block date-block)))
 
 (define (new-status status)
-  (cons `("full_text" . ,(date->string (current-date) "~4")) (alist-delete "full_text" todays-date))
-  )
+  status)
 
 (define (loopy status)
-  (format #t "\n,")
-  (scm->json (vector status))
+  (display "\n,")
+  (scm->json (list->vector (map bar-block->alist status)))
   (force-output)
   (sleep 1)
   (loopy (new-status status)))
+
+;;; swaybar-dob-guile ends here
