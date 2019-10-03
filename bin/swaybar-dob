@@ -1,0 +1,27 @@
+#!/bin/sh
+###
+# swaybar-dob
+###
+#
+# Very rough code to show current orgmode timed action.
+
+echo '{"version": 1 }'
+
+# Begin the endless array.
+echo '['
+
+# We send an empty first array of blocks to make the loop simpler:
+echo '[]'
+
+# Now send blocks with information forever:
+while :;
+do
+    echo ","
+    echo "["
+    if TASK=$(emacsclient -e '(if (org-clock-is-active) (substring-no-properties (org-clock-get-clock-string)) "==ENTER COIN==")'); then
+	          echo "{\"name\":\"task\", \"full_text\": $TASK, \"color\": \"#00ff00\" },"
+    fi
+    echo "{\"name\":\"time\",\"full_text\":\"$(date -Imin)\", \"align\":\"right\"}"
+    echo "]"
+    sleep 5;
+done
