@@ -1,0 +1,4 @@
+#!/bin/sh
+clementine -u
+cd ~/Private/codetherapy/obs-recordings
+vlc "$(ls -t |head -n1)"
