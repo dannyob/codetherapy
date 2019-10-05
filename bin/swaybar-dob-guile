@@ -25,6 +25,18 @@
 (use-modules (srfi srfi-19))
 (use-modules (srfi srfi-9))
 (use-modules (srfi srfi-43))
+(use-modules (ice-9 popen))
+(use-modules (ice-9 textual-ports))
+
+
+(define (shell->string command)
+  "Returns the output of shell command as a string. The return status of the command is given as a second return value."
+  (let* ((port (open-input-pipe command)))
+    (values (get-string-all port) (close-pipe port))))
+
+(define (s command)
+  "Local shorthand for shell->string."
+  (shell->string command))
 
 (define-record-type <bar-block>
   (make-bar-block name color run-func)
@@ -49,7 +61,15 @@
    "current-track"
    "#ff0000"
    (lambda ()
-     "The current track")))
+     (let*
+         ((track-info (read
+                       (open-input-string (s "guile -e main -s /home/danny/Public/src/dob/codetherapy/bin/update-track --sexp"))))
+          (error (assoc-ref track-info "error"))
+          (title (assoc-ref track-info "xesam-title"))
+          (artist (assoc-ref track-info "xesam-artist")))
+       (if error
+           "No track playing"
+           (string-append (or title "???") " / " (or artist "???")))))))
 
 (define initial-json '(("version" . 1)))
 
