@@ -3,6 +3,7 @@
 !#
 
 (use-modules
+ (srfi srfi-1)
  (ice-9 popen)
  (ice-9 textual-ports)
  (ice-9 receive)
@@ -67,6 +68,6 @@
 (define (add-to-explainer) (shell->list (add-to-explainer1)))
 
 (define (main args)
-  (if (and (< 1 (length args)) (string=? (cadr args) "--sexp"))
+  (if (any (lambda (x) (string=? x "--sexp")) args)
       (write (track-metadata))
       (add-to-explainer)))
