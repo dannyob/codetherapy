@@ -39,20 +39,23 @@
   (shell->string command))
 
 (define-record-type <bar-block>
-  (make-bar-block name color run-func)
+  (make-bar-block name color pango run-func)
   bar-block?
   (name bar-block-name)
   (color bar-block-color)
+  (pango bar-block-pango)
   (run-func bar-block-run-func))
 
 (define (bar-block->alist bb)
   `(("name" . ,(bar-block-name bb))
     ("color" . ,(bar-block-color bb))
+    ("markup" . ,(if (bar-block-pango bb) "pango" "none"))
     ("full_text" . ,(apply (bar-block-run-func bb) '()) )))
 
 (define date-block (make-bar-block
                     "todays-date"
-                    "#00ff00"
+                    "#008888"
+                    #f
                     (lambda ()
                       (date->string (current-date) "~4"))))
 
@@ -60,6 +63,7 @@
   (make-bar-block
    "current-track"
    "#ff0000"
+   #f
    (lambda ()
      (let*
          ((track-info (read
