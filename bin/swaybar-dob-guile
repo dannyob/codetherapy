@@ -22,6 +22,7 @@
 (use-modules (srfi srfi-1))
 (use-modules (ice-9 vlist))
 (use-modules (ice-9 hash-table))
+(use-modules (ice-9 format))
 (use-modules (srfi srfi-19))
 (use-modules (srfi srfi-9))
 (use-modules (srfi srfi-43))
@@ -33,6 +34,11 @@
   "Returns the output of shell command as a string. The return status of the command is given as a second return value."
   (let* ((port (open-input-pipe command)))
     (values (get-string-all port) (close-pipe port))))
+
+(define (shell->list command)
+  (let* ((port (open-input-pipe command))
+         (str  (string-split (get-string-all port) #\newline)))
+    (values str (close-pipe port))))
 
 (define (s command)
   "Local shorthand for shell->string."
@@ -75,6 +81,74 @@
            "No track playing"
            (string-append (or title "???") " / " (or artist "???")))))))
 
+(define battery-charging-chars '((  20 . "\uf585")
+                                 (  30 . "\uf586")
+                                 (  40 . "\uf587")
+                                 (  60 . "\uf588")
+                                 (  80 . "\uf589")
+                                 (  90 . "\uf58A")
+                                 ( 100 . "\uf584")))
+
+(define battery-discharging-chars '((  10 . "\uf579")
+                                    (  20 . "\uf57a")
+                                    (  30 . "\uf57b")
+                                    (  40 . "\uf57c")
+                                    (  50 . "\uf57d")
+                                    (  60 . "\uf57e")
+                                    (  70 . "\uf57f")
+                                    (  80 . "\uf580")
+                                    (  90 . "\uf581")
+                                    ( 100 . "\uf578")
+                                    ))
+
+(define (find-closest-battery remains value winner)
+  (cond
+   ((nil? remains) winner)
+   ((< (abs (- value (caar remains))) (abs (- value (car winner))))
+    (find-closest-battery (cdr remains) value (car remains)))
+   (else (find-closest-battery (cdr remains) value winner))))
+
+(define battery-backlog
+  (let ((battery-history '()))
+    (lambda (current-val)
+      (if (or (nil? battery-history)
+              (> (abs (time-second (time-difference (caar battery-history) (current-time)))) 60))
+          (set! battery-history (take (cons `(,(current-time) . ,current-val) battery-history) (min (+ 1 (length battery-history)) 10))))
+      battery-history)))
+
+(define (battery-rendition bassoc)
+  "Given a alist of upower key/values, construct a status text"
+  (let* ((state (assoc-ref bassoc "state"))
+         (percentage (assoc-ref bassoc "percentage"))
+         (percentage-num (string->number (string-filter (lambda (x) (not (equal? #\% x))) percentage)))
+         (percentage-string (format #f "~d" (inexact->exact (round percentage-num))))
+         (time-to-empty (assoc-ref bassoc "time to empty"))
+         (time-to-full (assoc-ref bassoc "time to full")))
+    (string-append
+     "<span face=\"ModeSeven\" foreground=\""
+     (cond ((< percentage-num 20) "#ff0000")
+           ((> percentage-num 80) "#00ff00")
+           (else "#ffff00"))
+     "\">"
+     "<span face=\"Sparks\">{"
+     (string-join (reverse (map cdr (battery-backlog percentage-string))) ",")
+     "}</span> "
+     (if (string=? state "charging") (cdr (find-closest-battery battery-charging-chars percentage-num '(0 . "X"))) "")
+     (if (string=? state "discharging") (cdr (find-closest-battery battery-discharging-chars percentage-num '(0. "X"))) "")
+     percentage-string
+     "</span>"
+     )))
+
+(define battery-block
+  (make-bar-block
+   "battery-info"
+   "#ffff00"
+   #t
+   (lambda ()
+     (let* ((bat-report (shell->list "upower -i /org/freedesktop/UPower/devices/DisplayDevice"))
+            (bat-assoc  (map (lambda (x) (apply cons* (map string-trim-both (string-split x #\:)))) bat-report)))
+       (battery-rendition bat-assoc)))))
+
 (define initial-json '(("version" . 1)))
 
 (define (main args)
@@ -82,7 +156,7 @@
   (display "\n")
   (display "[\n")
   (display "[]\n")
-  (loopy (list track-block date-block)))
+  (loopy (list track-block battery-block date-block)))
 
 (define (new-status status)
   status)
