@@ -21,6 +21,7 @@
 (use-modules (json))
 (use-modules (srfi srfi-1))
 (use-modules (ice-9 vlist))
+
 (use-modules (ice-9 hash-table))
 (use-modules (ice-9 format))
 (use-modules (srfi srfi-19))
@@ -28,7 +29,8 @@
 (use-modules (srfi srfi-43))
 (use-modules (ice-9 popen))
 (use-modules (ice-9 textual-ports))
-
+(use-modules (web client))
+(use-modules (gnutls))
 
 (define (shell->string command)
   "Returns the output of shell command as a string. The return status of the command is given as a second return value."
@@ -83,6 +85,20 @@
              (artist artist)
              (else ""))))))
 
+
+(define is-it-time
+  (let ((time-store '()))
+    (lambda (tag interval)
+      (let ((timed-tag (assoc-ref time-store tag)))
+        (cond ((and timed-tag
+                    (> (abs (time-second (time-difference (current-time) timed-tag))) interval))
+               (set! time-store (assoc-set! time-store tag (current-time)))
+               #t)
+              ((not timed-tag) (set! time-store (acons tag (current-time) time-store))
+               #t)
+              (else #f))))))
+
+
 (define battery-charging-chars '((  20 . "\uf585")
                                  (  30 . "\uf586")
                                  (  40 . "\uf587")
@@ -114,8 +130,8 @@
   (let ((battery-history '()))
     (lambda (current-val)
       (if (or (nil? battery-history)
-              (> (abs (time-second (time-difference (caar battery-history) (current-time)))) 60))
-          (set! battery-history (take (cons `(,(current-time) . ,current-val) battery-history) (min (+ 1 (length battery-history)) 10))))
+              (> (abs (time-second (time-difference (caar battery-history) (current-time)))) 600))
+          (set! battery-history (take (cons `(,(current-time) . ,current-val) battery-history) (min (+ 1 (length battery-history)) 6))))
       battery-history)))
 
 (define (battery-rendition bassoc)
@@ -143,6 +159,7 @@
 
 (define battery-block
   (make-bar-block
+
    "battery-info"
    "#ffff00"
    #t
@@ -151,6 +168,19 @@
             (bat-assoc  (map (lambda (x) (apply cons* (map string-trim-both (string-split x #\:)))) bat-report)))
        (battery-rendition bat-assoc)))))
 
+(define twitch-client-id (assoc-ref (read (open (string-append (getenv "HOME") "/Private/codetherapy/secrets/twitch-api") O_RDONLY)) 'client-id))
+
+;; (define get-twitch-followers
+;;   (http-request "https://api.twitch.tv/kraken/channels/128400135/follows" #:headers '(("Accept" . "application/vnd.twitchtv.v5+json") ("Client-Id:" . twitch-client-id) )))
+
+(define follower-block
+  (make-bar-block
+   "follower-info"
+   "#00ffff"
+   #f
+   (lambda ()
+     (format #f "~a" (is-it-time "yeah" 5)))))
+
 (define initial-json '(("version" . 1)))
 
 (define (main args)
@@ -158,10 +188,7 @@
   (display "\n")
   (display "[\n")
   (display "[]\n")
-  (loopy (list track-block battery-block date-block)))
-
-(define (new-status status)
-  status)
+  (loopy (list follower-block track-block battery-block date-block)))
 
 (define (loopy status)
   (display "\n,")
