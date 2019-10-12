@@ -77,9 +77,11 @@
           (error (assoc-ref track-info "error"))
           (title (assoc-ref track-info "xesam-title"))
           (artist (assoc-ref track-info "xesam-artist")))
-       (if error
-           "No track playing"
-           (string-append (or title "???") " / " (or artist "???")))))))
+       (cond (error "???")
+             ((and title artist) (string-append title " / " artist))
+             (title title)
+             (artist artist)
+             (else ""))))))
 
 (define battery-charging-chars '((  20 . "\uf585")
                                  (  30 . "\uf586")
@@ -133,8 +135,8 @@
      "<span face=\"Sparks\">{"
      (string-join (reverse (map cdr (battery-backlog percentage-string))) ",")
      "}</span> "
-     (if (string=? state "charging") (cdr (find-closest-battery battery-charging-chars percentage-num '(0 . "X"))) "")
-     (if (string=? state "discharging") (cdr (find-closest-battery battery-discharging-chars percentage-num '(0. "X"))) "")
+     (if (string=? state "charging") (cdr (find-closest-battery battery-charging-chars percentage-num '(-100 . "X"))) "")
+     (if (string=? state "discharging") (cdr (find-closest-battery battery-discharging-chars percentage-num '(-100. "X"))) "")
      percentage-string
      "</span>"
      )))
@@ -166,6 +168,5 @@
   (scm->json (list->vector (map bar-block->alist status)))
   (force-output)
   (sleep 1)
-  (loopy (new-status status)))
-
+  (loopy status))
 ;;; swaybar-dob-guile ends here
