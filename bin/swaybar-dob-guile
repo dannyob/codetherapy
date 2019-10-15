@@ -170,16 +170,35 @@
 
 (define twitch-client-id (assoc-ref (read (open (string-append (getenv "HOME") "/Private/codetherapy/secrets/twitch-api") O_RDONLY)) 'client-id))
 
-;; (define get-twitch-followers
-;;   (http-request "https://api.twitch.tv/kraken/channels/128400135/follows" #:headers '(("Accept" . "application/vnd.twitchtv.v5+json") ("Client-Id:" . twitch-client-id) )))
+(define (get-twitch-followers)
+  (receive (metadata response)
+      (http-request "https://api.twitch.tv/kraken/channels/128400135/follows" #:headers `((accept . ((application/vnd.twitchtv.v5+json))) (client-id . ,twitch-client-id)))
+    (json-string->scm (utf8->string response))))
+
+(define (get-latest-twitch-follower)
+  (match-let* ((user (match (get-twitch-followers) ((("follows" . #(x _ ... )) . _)  x)))
+               (info (match user ((("user" . y) _ ... ) y))))
+    info))
+
+(define (render-follower)
+  (let* ((latest-follower-alist (get-latest-twitch-follower))
+         (latest-follower-name (assoc-ref latest-follower-alist "display_name")))
+    (string-append
+     "Latest follower: "
+     latest-follower-name
+     " "
+     )))
 
 (define follower-block
   (make-bar-block
    "follower-info"
    "#00ffff"
    #f
-   (lambda ()
-     (format #f "~a" (is-it-time "yeah" 5)))))
+   (let ((cached-follower-text (render-follower)))
+     (lambda ()
+       (if (is-it-time "follower-block" 20)
+           (set! cached-follower-text (render-follower)))
+       cached-follower-text))))
 
 (define initial-json '(("version" . 1)))
 
