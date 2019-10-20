@@ -119,7 +119,7 @@ reset attaching to that session"
 
 (define (reboot-pulseaudio)
   (s "pulseaudio -k")
-  (s "pulseaudio -D"))
+  (s "pulseaudio --start -D"))
 
 (define (make-stream )
   "Create the STREAM sink"
