@@ -10,11 +10,11 @@
 ;; gets to its closing "]".
 ;;
 ;; We output this protocol over STDOUT.
-;; TODO:
-;; In our status bar, we would like:
-;; - The time and date.
+;; 
+;; In our status bar, we have:
+;; - The last Twitch follower.
 ;; - The currently playing track.
-;; - The last follower.
+;; - The time and date.
 
 ;;; Code:
 
@@ -24,6 +24,9 @@
 
 (use-modules (ice-9 hash-table))
 (use-modules (ice-9 format))
+(use-modules (ice-9 receive))
+(use-modules (ice-9 match))
+(use-modules (rnrs bytevectors))
 (use-modules (srfi srfi-19))
 (use-modules (srfi srfi-9))
 (use-modules (srfi srfi-43))
@@ -175,17 +178,18 @@
       (http-request "https://api.twitch.tv/kraken/channels/128400135/follows" #:headers `((accept . ((application/vnd.twitchtv.v5+json))) (client-id . ,twitch-client-id)))
     (json-string->scm (utf8->string response))))
 
-(define (get-latest-twitch-follower)
-  (match-let* ((user (match (get-twitch-followers) ((("follows" . #(x _ ... )) . _)  x)))
-               (info (match user ((("user" . y) _ ... ) y))))
-    info))
+(define (get-latest-follower-alist)
+  (match (get-twitch-followers)
+    ((("follows" . #((("user" . follower-alist) _ ... ) _ ... )) . _) follower-alist)
+    (_ #f)
+    ))
 
 (define (render-follower)
-  (let* ((latest-follower-alist (get-latest-twitch-follower))
+  (let* ((latest-follower-alist (get-latest-follower-alist))
          (latest-follower-name (assoc-ref latest-follower-alist "display_name")))
     (string-append
      "Latest follower: "
-     latest-follower-name
+     (if latest-follower-name latest-follower-name "???")
      " "
      )))
 
@@ -216,3 +220,4 @@
   (sleep 1)
   (loopy status))
 ;;; swaybar-dob-guile ends here
+
