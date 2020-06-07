@@ -18,6 +18,10 @@
                                   (if (char=? #\newline a) "'\n'" (string a))))
                  "" s)))
 
+;; This is the equivalent statement for dbus
+;;  dbus-send --print-reply --dest=org.mpris.MediaPlayer2.clementine /org/mpris/MediaPlayer2 org.freedesktop.DBus.Properties.GetAll string:"org.mpris.MediaPlayer2.Player
+;;  Except that it outputs the result in some crazy dbus output
+;;  qdbus is in the qttools guix package
 (define get-track-metadata-command "qdbus org.mpris.MediaPlayer2.clementine /org/mpris/MediaPlayer2 org.freedesktop.DBus.Properties.Get org.mpris.MediaPlayer2.Player Metadata")
 
 (define (shell->list command)
@@ -64,10 +68,14 @@
                           (with-output-to-string (lambda () (sxml->xml (track-details-sxml))))))
                  " /home/danny/Private/codetherapy/onscreen-explainer.html"))
 
+(define (sleep-and-loop seconds thunk)
+  thunk
+  (sleep seconds)
+  (sleep-and-loop seconds thunk))
 
 (define (add-to-explainer) (shell->list (add-to-explainer1)))
 
 (define (main args)
   (if (any (lambda (x) (string=? x "--sexp")) args)
       (write (track-metadata))
-      (add-to-explainer)))
+      (sleep-and-loop 5 add-to-explainer)))
