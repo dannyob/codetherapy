@@ -46,10 +46,10 @@ argument to a shell."
   (let* ((port (open-input-pipe command)))
     (values (get-string-all port) (close-pipe port))))
 
-(define (s command)
-  "Local shorthand for shell->string."
-  (format #t "~a\n" command)
-  (shell->string command))
+(define (s command
+           "Local shorthand for shell->string."
+           (format #t "~a\n" command)
+           (shell->string command)))
 
 (define (sway-tree)
   "Returns sexp equivalent of sway's layout tree: all open windows, containers, outputs, workspaces, and so on."
@@ -100,8 +100,7 @@ reset attaching to that session"
 (define (kill-kitties)
   "Kills previous kitties, if they exist."
   (s "tmux kill-session -t weechat")
-  (s "swaymsg '[con_mark=\"teleprompt\"] kill'")
-  )
+  (s "swaymsg '[con_mark=\"teleprompt\"] kill'"))
 
 (define (window-id-swaymsg window-number command)
   "Construct swaymsg command that will be narrowed to a particular window number."
