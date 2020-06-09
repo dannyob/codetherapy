@@ -71,8 +71,7 @@ list that reflects the structure of the tree objects."
     (cond ((and id nodes) (cons (func s)
                                 (json-map (lambda (x) (swaytree-walk func x)) nodes)))
           ((and id (not nodes)) (func s))
-          (else '()))
-    ))
+          (else '()))))
 
 (define (flat-windows)
   "Returns a flat list of all windows ids in sway-tree."

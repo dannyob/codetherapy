@@ -10,7 +10,7 @@
 ;; gets to its closing "]".
 ;;
 ;; We output this protocol over STDOUT.
-;; 
+;;
 ;; In our status bar, we have:
 ;; - The last Twitch follower.
 ;; - The currently playing track.
@@ -41,6 +41,7 @@
     (values (get-string-all port) (close-pipe port))))
 
 (define (shell->list command)
+  "Returns the output of shell command as a list. Each element of the list is one line of the output. The return status of the command is given as a second return value."
   (let* ((port (open-input-pipe command))
          (str  (string-split (get-string-all port) #\newline)))
     (values str (close-pipe port))))
@@ -162,7 +163,6 @@
 
 (define battery-block
   (make-bar-block
-
    "battery-info"
    "#ffff00"
    #t
