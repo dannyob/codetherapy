@@ -129,8 +129,19 @@ reset attaching to that session"
   (let ((slaves (s "pactl list short sinks | grep -E '(STREAM|usb)'| cut -f1 | tr '\\n' ','")))
     (s (format #f "pacmd load-module module-combine-sink sink_name=STREAM_and_out sink_properties=device.description=\"STREAM_and_out\" slaves=\"~a\"" slaves))))
 
+(define (check-we-are-plugged-in)
+  "Complain if we're not attached to AC"
+  (define power-supply "/sys/class/power_supply/AC/online")
+  (if (not (file-exists? power-supply))
+      (display "Cannot tell whether I am plugged in")
+      (call-with-input-file power-supply
+        (lambda (port)
+          (if (not (equal? "1" (string-trim-right (get-string-all port))))
+              (error "We are not plugged into the mains!"))))))
+
 (define (main args)
   (display "Setting up everything!")
+  (check-we-are-plugged-in)
   (kill-kitties)
   (setup-kitties)
   (reboot-pulseaudio)
